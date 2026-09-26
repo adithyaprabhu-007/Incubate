@@ -16,7 +16,7 @@ temporary access to critical patient information.
 
 - React
 - FastAPI
-- PostgreSQL
+- Mongo DB
 - Git
 - GitHub
 
