@@ -1,4 +1,12 @@
+-- EmergencyDPI Database Schema
+-- PostgreSQL / Supabase
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+
+-- ============================================
+-- USERS
+-- ============================================
 
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -8,9 +16,16 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
+-- ============================================
+-- EMERGENCY PROFILES
+-- ============================================
+
 CREATE TABLE emergency_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    user_id UUID UNIQUE NOT NULL
+        REFERENCES users(id) ON DELETE CASCADE,
 
     blood_group VARCHAR(10),
     allergies TEXT,
@@ -25,11 +40,19 @@ CREATE TABLE emergency_profiles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
+-- ============================================
+-- ACCESS REQUESTS
+-- ============================================
+
 CREATE TABLE access_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    patient_id UUID NOT NULL REFERENCES users(id),
-    requester_id UUID NOT NULL REFERENCES users(id),
+    patient_id UUID NOT NULL
+        REFERENCES users(id),
+
+    requester_id UUID NOT NULL
+        REFERENCES users(id),
 
     purpose VARCHAR(255) NOT NULL,
 
@@ -39,11 +62,26 @@ CREATE TABLE access_requests (
     requested_conditions BOOLEAN DEFAULT FALSE,
     requested_emergency_contact BOOLEAN DEFAULT FALSE,
 
-    status VARCHAR(30) DEFAULT 'pending',
+    status VARCHAR(30) DEFAULT 'pending'
+        CHECK (
+            status IN (
+                'pending',
+                'approved',
+                'denied',
+                'expired',
+                'break_glass'
+            )
+        ),
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP
 );
+
+
+-- ============================================
+-- ACCESS GRANTS
+-- ============================================
 
 CREATE TABLE access_grants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -58,23 +96,46 @@ CREATE TABLE access_grants (
     approved_emergency_contact BOOLEAN DEFAULT FALSE,
 
     granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
 
     status VARCHAR(30) DEFAULT 'active'
+        CHECK (
+            status IN (
+                'active',
+                'expired',
+                'revoked'
+            )
+        )
 );
+
+
+-- ============================================
+-- AUDIT LOGS
+-- ============================================
 
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    user_id UUID REFERENCES users(id),
-    patient_id UUID REFERENCES users(id),
-    request_id UUID REFERENCES access_requests(id),
+    user_id UUID
+        REFERENCES users(id),
+
+    patient_id UUID
+        REFERENCES users(id),
+
+    request_id UUID
+        REFERENCES access_requests(id),
 
     action VARCHAR(100) NOT NULL,
     reason TEXT,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- ============================================
+-- INDEXES
+-- ============================================
 
 CREATE INDEX idx_access_requests_patient
 ON access_requests(patient_id);
