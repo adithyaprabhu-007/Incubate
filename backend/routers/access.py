@@ -13,6 +13,7 @@ from schemas import (
     AccessRequestCreate,
     AccessRequestResponse,
     AuditLogResponse,
+    BreakGlassCreate,
 )
 
 router = APIRouter(
@@ -93,7 +94,7 @@ def create_access_request(
         requested_emergency_contact=request_data.requested_emergency_contact,
         status="pending",
         created_at=now,
-        updated_at=now,
+        
     )
 
     db.add(access_request)
@@ -226,7 +227,6 @@ def approve_access_request(
         approved_conditions=approval.approved_conditions,
         approved_emergency_contact=approval.approved_emergency_contact,
         granted_at=now,
-        updated_at=now,
         expires_at=expires_at,
         status="active",
     )
@@ -278,3 +278,129 @@ def get_audit_logs(
     ).all()
 
     return list(logs)
+# BREAK-GLASS EMERGENCY OVERRIDE
+#
+# Minimum-necessary implementation using the EXISTING schema only:
+# no new table. A break-glass request creates an access_requests row
+# that is immediately "approved" and an access_grants row that is
+# immediately "active", and both are tied together by an audit_logs
+# row with action="break_glass_override" so the override is fully
+# traceable in the same audit trail as a normal consent flow.
+# ---------------------------------------------------------
+
+@router.post(
+    "/break-glass",
+    response_model=AccessGrantResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def break_glass_access(
+    data: BreakGlassCreate,
+    db: Session = Depends(get_db),
+):
+    if data.patient_id == data.requester_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Patient and requester must be different users",
+        )
+
+    requested_fields = [
+        data.requested_blood_group,
+        data.requested_allergies,
+        data.requested_medications,
+        data.requested_conditions,
+        data.requested_emergency_contact,
+    ]
+
+    if not any(requested_fields):
+        raise HTTPException(
+            status_code=400,
+            detail="At least one medical field must be requested",
+        )
+
+    patient = db.scalar(
+        select(User).where(
+            User.id == data.patient_id,
+            User.role == "patient",
+        )
+    )
+
+    if patient is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Patient not found",
+        )
+
+    requester = db.scalar(
+        select(User).where(
+            User.id == data.requester_id,
+            User.role.in_(["doctor", "hospital"]),
+        )
+    )
+
+    if requester is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Requester must be a doctor or hospital",
+        )
+
+    if data.expires_in_minutes <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Expiry time must be greater than 0 minutes",
+        )
+
+    if data.expires_in_minutes > 240:
+        raise HTTPException(
+            status_code=400,
+            detail="Break-glass expiry cannot exceed 4 hours",
+        )
+
+    now = datetime.utcnow()
+    expires_at = now + timedelta(minutes=data.expires_in_minutes)
+
+    access_request = AccessRequest(
+        patient_id=data.patient_id,
+        requester_id=data.requester_id,
+        purpose=f"BREAK-GLASS OVERRIDE: {data.reason}",
+        requested_blood_group=data.requested_blood_group,
+        requested_allergies=data.requested_allergies,
+        requested_medications=data.requested_medications,
+        requested_conditions=data.requested_conditions,
+        requested_emergency_contact=data.requested_emergency_contact,
+        status="approved",
+        created_at=now,
+        expires_at=expires_at,
+    )
+
+    db.add(access_request)
+    db.flush()
+
+    grant = AccessGrant(
+        request_id=access_request.id,
+        approved_blood_group=data.requested_blood_group,
+        approved_allergies=data.requested_allergies,
+        approved_medications=data.requested_medications,
+        approved_conditions=data.requested_conditions,
+        approved_emergency_contact=data.requested_emergency_contact,
+        granted_at=now,
+        expires_at=expires_at,
+        status="active",
+    )
+
+    db.add(grant)
+
+    audit_log = AuditLog(
+        user_id=data.requester_id,
+        patient_id=data.patient_id,
+        request_id=access_request.id,
+        action="break_glass_override",
+        reason=data.reason,
+        created_at=now,
+    )
+
+    db.add(audit_log)
+
+    db.commit()
+    db.refresh(grant)
+
+    return grant

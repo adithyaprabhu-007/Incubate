@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import Navbar from './components/Navbar';
+import { createAccessRequest } from './api/emergencyDpiApi';
 import DemoFlowBar from './components/DemoFlowBar';
 import PatientDashboard from './components/PatientDashboard';
 import FirstResponderView from './components/FirstResponderView';
@@ -538,8 +539,25 @@ export default function App() {
      3. HOSPITAL REQUEST
      ========================================================= */
 
-  const handleSubmitHospitalRequest = (request) => {
+  const handleSubmitHospitalRequest = async (request) => {
+  try {
+    const backendRequest = await createAccessRequest({
+      patientId: 'fdce8eef-dfba-4dcb-8387-944a5d6558a2',
+      requesterId: '87ef9df8-5a44-4192-bf6b-846a4bc084a7',
+      purpose: request.purpose || 'Emergency medical access',
+      requestedBloodGroup: request.scopes?.includes('vitals') || false,
+      requestedAllergies: request.scopes?.includes('allergies') || false,
+      requestedMedications: request.scopes?.includes('medications') || false,
+      requestedConditions: request.scopes?.includes('history') || false,
+      requestedEmergencyContact: false,
+    });
 
+    console.log('Backend access request created:', backendRequest);
+  } catch (error) {
+    console.error('Backend access request failed:', error);
+    showToast(`Backend request failed: ${error.message}`, 'error');
+    return;
+  }
     const normalizedRequest = {
 
       ...request,

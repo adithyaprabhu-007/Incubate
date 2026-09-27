@@ -98,3 +98,15 @@ class AccessRequestApprove(BaseModel):
     approved_emergency_contact: bool = False
 
     expires_in_minutes: int = 30
+class BreakGlassCreate(BaseModel):
+    patient_id: UUID
+    requester_id: UUID
+    reason: str
+
+    requested_blood_group: bool = True
+    requested_allergies: bool = True
+    requested_medications: bool = True
+    requested_conditions: bool = True
+    requested_emergency_contact: bool = True
+
+    expires_in_minutes: int = 60
