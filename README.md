@@ -2,6 +2,10 @@
 
 > A consent-controlled emergency health identity system designed to provide verified emergency responders with limited and temporary access to critical patient information.
 
+## Live Demo
+http://10.53.39.176:3000/
+[Open EmergencyDPI](https://adithyaprabhu-007.github.io/Incubate/)
+
 ## 🚑 Overview
 
 EmergencyDPI is a hackathon project focused on improving access to essential patient information during emergency situations.
@@ -105,4 +109,4 @@ The exact implementation of these features may evolve as the MVP is developed.
                 ┌─────────────────────┐
                 │      Database       │
                 │     PostgreSQL      │
-                └─────────────────────┘
+
