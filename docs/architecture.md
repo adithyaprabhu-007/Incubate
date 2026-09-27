@@ -250,5 +250,26 @@ This allows the platform to potentially support:
 * Healthcare-system integrations
 * Advanced authentication and verification
 
+## 9. MVP Architecture
+
+For the hackathon, the architecture focuses on demonstrating the core workflow:
+
+Patient
+   |
+EmergencyDPI Identity / QR
+   |
+Responder Verification
+   |
+Access Request
+   |
+Consent / Emergency Authorization
+   |
+Limited Patient Information
+   |
+Temporary Access
+   |
+Audit Log
+
+The implementation details, technologies, and database structure may evolve as development progresses.
 
 
